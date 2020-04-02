@@ -1,0 +1,4 @@
+*.ini
+*.csv
+.DS_Store
+.mypy_cache
