@@ -16,3 +16,6 @@ Additional required Python dependencies can be found requirements.txt, and can b
 ### Usage
 
 Run `python content_validator_comparison.py` to compare broken content in production and development mode (whatever branch you currently default to when you enter dev mode). Broken content that only exists in your dev branch will be outputted into a csv file.
+
+An important thing to be aware of is that this across all projects, so you'll want to make sure that your dev branches are all up to date. That is, enter each project you have access to and "Pull from Production"
+
