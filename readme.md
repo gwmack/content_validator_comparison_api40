@@ -1,4 +1,4 @@
-# Looker Content Cleanup
+# Looker Content Validator Comparison
 
 Compare the output of content validator runs in production and development mode. Additional broken content in development mode will be outputted to a csv file. Use this script to test whether LookML changes will result in new broken content.
 
