@@ -5,8 +5,7 @@ import hashlib
 import csv
 
 config_file = "looker.ini"
-sdk = client.setup(config_file)
-
+sdk = looker_sdk.init31("looker.ini")
 
 def main():
     """Compare the output of content validator runs
