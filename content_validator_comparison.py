@@ -6,7 +6,7 @@ import csv
 import argparse
 import sys
 
-config_file = "looker3.ini"
+config_file = "looker.ini"
 sdk = looker_sdk.init31(config_file)
 
 # Setup argparser
