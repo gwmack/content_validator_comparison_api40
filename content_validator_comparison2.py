@@ -46,7 +46,7 @@ def main():
         branch_name = args.branch
         lookml_project = args.project
         checkout_dev_branch(branch_name, lookml_project)
-        # sync_dev_branch_to_remote(lookml_project)
+        sync_dev_branch_to_remote(lookml_project)
     print("Checking for broken content in dev branch.")
     broken_content_dev = parse_broken_content(
         base_url, get_broken_content(), space_data
@@ -178,9 +178,9 @@ def checkout_dev_branch(branch_name, lookml_project):
     branch = models.WriteGitBranch(name=branch_name)
     sdk.update_git_branch(project_id=lookml_project, body=branch)
 
-# def sync_dev_branch_to_remote(lookml_project):
-#     """Pull down changes from remote repo"""
-#     sdk.reset_project_to_remote(project_id=lookml_project)
+def sync_dev_branch_to_remote(lookml_project):
+    """Pull down changes from remote repo"""
+    sdk.reset_project_to_remote(project_id=lookml_project)
 
 def write_broken_content_to_file(broken_content, output_csv_name):
     """Export new content errors in dev branch to csv file"""
