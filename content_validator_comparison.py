@@ -43,7 +43,7 @@ def get_base_url():
     config = configparser.ConfigParser()
     config.read(config_file)
     full_base_url = config.get("Looker", "base_url")
-    base_url = sdk.auth.settings.base_url[: full_base_url.index(":19999")]
+    base_url = sdk.auth.settings.base_url
     return base_url
 
 
