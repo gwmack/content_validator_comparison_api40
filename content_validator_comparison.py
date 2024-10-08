@@ -7,7 +7,7 @@ from looker_sdk.rtl import transport
 
 config_file = "looker.ini"
 
-class MyTransportOptions(transport.PTransportSettings): timeout = 600
+#class MyTransportOptions(transport.PTransportSettings): timeout = 600
 
 sdk = looker_sdk.init40(config_file)
 
