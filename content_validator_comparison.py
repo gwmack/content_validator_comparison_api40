@@ -5,7 +5,7 @@ import hashlib
 import csv
 from looker_sdk.rtl import transport
 
-config_file = "../../looker.ini"
+config_file = "looker.ini"
 
 class MyTransportOptions(transport.PTransportSettings): timeout = 600
 
