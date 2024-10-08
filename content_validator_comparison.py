@@ -7,7 +7,7 @@ from looker_sdk.rtl import transport
 
 config_file = "looker.ini"
 
-#class MyTransportOptions(transport.PTransportSettings): timeout = 600
+class MyTransportOptions(transport.PTransportSettings): timeout = 600
 
 sdk = looker_sdk.init40(config_file)
 
@@ -56,7 +56,7 @@ def get_folder_data():
 def get_broken_content():
     """Collect broken content"""
     broken_content = sdk.content_validation(
-        transport_options=MyTransportOptions
+        #transport_options=MyTransportOptions
     ).content_with_errors
     return broken_content
 
