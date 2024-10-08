@@ -7,7 +7,7 @@ import hashlib
 import csv
 
 config_file = "looker.ini"
-sdk = looker_sdk.init31("looker.ini")
+sdk = looker_sdk.init40("looker.ini")
 
 
 def main():
