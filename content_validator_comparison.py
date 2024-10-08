@@ -1,31 +1,16 @@
 import looker_sdk
-#from looker_sdk import models
+from looker_sdk import models40 as models
 import configparser
 import hashlib
 import csv
-import argparse
-import sys
+from looker_sdk.rtl import transport
 
-config_file = "looker.ini"
+config_file = "../../looker.ini"
+
+class MyTransportOptions(transport.PTransportSettings): timeout = 600
+
 sdk = looker_sdk.init40(config_file)
 
-# Setup argparser
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--branch', 
-    '-b', 
-    type=str, 
-    required=False, 
-    help='Specify developer branch to checkout.'
-)
-parser.add_argument(
-    '--project', 
-    '-p', 
-    type=str, 
-    required="--branch in sys.argv", 
-    help='Specify a LookML project.'
-)
-args = parser.parse_args()
 
 def main():
     """Compare the output of content validator runs
@@ -35,21 +20,16 @@ def main():
 
     Use this script to test whether LookML changes
     will result in new broken content."""
-    base_url = get_base_url(config_file)
-    space_data = get_space_data()
+    base_url = get_base_url()
+    folder_data = get_folder_data()
     print("Checking for broken content in production.")
     broken_content_prod = parse_broken_content(
-        base_url, get_broken_content(), space_data
+        base_url, get_broken_content(), folder_data
     )
-    enter_dev_mode()
-    if args.branch:
-        branch_name = args.branch
-        lookml_project = args.project
-        checkout_dev_branch(branch_name, lookml_project)
-        sync_dev_branch_to_remote(lookml_project)
+    checkout_dev_branch()
     print("Checking for broken content in dev branch.")
     broken_content_dev = parse_broken_content(
-        base_url, get_broken_content(), space_data
+        base_url, get_broken_content(), folder_data
     )
     new_broken_content = compare_broken_content(broken_content_prod, broken_content_dev)
     if new_broken_content:
@@ -57,104 +37,89 @@ def main():
     else:
         print("No new broken content in development branch.")
 
-def get_base_url(config_file):
+
+def get_base_url():
     """ Pull base url from looker.ini, remove port"""
     config = configparser.ConfigParser()
     config.read(config_file)
     full_base_url = config.get("Looker", "base_url")
-    try:
-        api_port = config.get("Looker","api_port")
-    except:
-        api_port = None
-    if api_port:
-        base_url = full_base_url
-    else:
-        try:
-            base_url = full_base_url
-            #base_url = full_base_url[:full_base_url.index(":19999")]--original
-         except:
-            base_url = full_base_url[:full_base_url.index(":443")]
+    base_url = sdk.auth.settings.base_url[: full_base_url.index(":19999")]
     return base_url
 
 
-def get_space_data():
-    """Collect all space information"""
-    space_data = sdk.all_spaces(fields="id, parent_id, name")
-    return space_data
+def get_folder_data():
+    """Collect all folder information"""
+    folder_data = sdk.all_folders(fields="id, parent_id, name")
+    return folder_data
 
 
 def get_broken_content():
     """Collect broken content"""
-    broken_content = sdk.content_validation().content_with_errors
+    broken_content = sdk.content_validation(
+        transport_options=MyTransportOptions
+    ).content_with_errors
     return broken_content
 
 
-def parse_broken_content(base_url, broken_content, space_data):
+def parse_broken_content(base_url, broken_content, folder_data):
     """Parse and return relevant data from content validator"""
     output = []
     for item in broken_content:
         if item.dashboard:
             content_type = "dashboard"
-        elif item.look:
+        else:
             content_type = "look"
+        item_content_type = getattr(item, content_type)
+        id = item_content_type.id
+        name = item_content_type.title
+        folder_id = item_content_type.folder.id
+        folder_name = item_content_type.folder.name
+        errors = item.errors
+        url = f"{base_url}/{content_type}s/{id}"
+        folder_url = "{}/folders/{}".format(base_url, folder_id)
+        if content_type == "look":
+            element = None
         else:
-            content_type = "other"
-        if content_type == "other":
-            pass
+            dashboard_element = item.dashboard_element
+            element = dashboard_element.title if dashboard_element else None
+        # Lookup additional folder information
+        folder = next(i for i in folder_data if str(i.id) == str(folder_id))
+        parent_folder_id = folder.parent_id
+        # Old version of API  has issue with None type for all_folders() call
+        if parent_folder_id is None or parent_folder_id == "None":
+            parent_folder_url = None
+            parent_folder_name = None
         else:
-            item_content_type = getattr(item, content_type)
-            if item_content_type is None:
-                pass
-            id = item_content_type.id
-            name = item_content_type.title
-            space_id = item_content_type.space.id
-            space_name = item_content_type.space.name
-            errors = item.errors
-            url = f"{base_url}/{content_type}s/{id}"
-            space_url = "{}/spaces/{}".format(base_url, space_id)
-            if content_type == "look":
-                element = None
-            else:
-                dashboard_element = item.dashboard_element
-                element = dashboard_element.title if dashboard_element else None
-            # Lookup additional space information
-            space = next(i for i in space_data if str(i.id) == str(space_id))
-            parent_space_id = space.parent_id
-            # Old version of API  has issue with None type for all_space() call
-            if parent_space_id is None or parent_space_id == "None":
-                parent_space_url = None
-                parent_space_name = None
-            else:
-                parent_space_url = "{}/spaces/{}".format(base_url, parent_space_id)
-                parent_space = next(
-                    (i for i in space_data if str(i.id) == str(parent_space_id)), None
-                )
-                # Handling an edge case where space has no name. This can happen
-                # when users are improperly generated with the API
-                try:
-                    parent_space_name = parent_space.name
-                except AttributeError:
-                    parent_space_name = None
-            # Create a unique hash for each record. This is used to compare
-            # results across content validator runs
-            unique_id = hashlib.md5(
-                "-".join(
-                    [str(id), str(element), str(name), str(errors), str(space_id)]
-                ).encode()
-            ).hexdigest()
-            data = {
-                "unique_id": unique_id,
-                "content_type": content_type,
-                "name": name,
-                "url": url,
-                "dashboard_element": element,
-                "space_name": space_name,
-                "space_url": space_url,
-                "parent_space_name": parent_space_name,
-                "parent_space_url": parent_space_url,
-                "errors": str(errors),
-            }
-            output.append(data)
+            parent_folder_url = "{}/folders/{}".format(base_url, parent_folder_id)
+            parent_folder = next(
+                (i for i in folder_data if str(i.id) == str(parent_folder_id)), None
+            )
+            # Handling an edge case where folder has no name. This can happen
+            # when users are improperly generated with the API
+            try:
+                parent_folder_name = parent_folder.name
+            except AttributeError:
+                parent_folder_name = None
+        # Create a unique hash for each record. This is used to compare
+        # results across content validator runs
+        unique_id = hashlib.md5(
+            "-".join(
+                [str(id), str(element), str(name), str(errors), str(folder_id)]
+            ).encode()
+        ).hexdigest()
+        data = {
+            "unique_id": unique_id,
+            "content_type": content_type,
+            "name": name,
+            "url": url,
+            "dashboard_element": element,
+            "folder_name": folder_name,
+            "folder_url": folder_url,
+            "parent_folder_name": parent_folder_name,
+            "parent_folder_url": parent_folder_url,
+            "errors": str(errors),
+        }
+        output.append(data)
     return output
 
 
@@ -169,19 +134,11 @@ def compare_broken_content(broken_content_prod, broken_content_dev):
             new_broken_content.append(item)
     return new_broken_content
 
-def enter_dev_mode():
+
+def checkout_dev_branch():
     """Enter dev workspace"""
     sdk.update_session(models.WriteApiSession(workspace_id="dev"))
 
-def checkout_dev_branch(branch_name, lookml_project):
-    """Checkout a specific dev branch"""
-    print(f"Checking out {branch_name}")
-    branch = models.WriteGitBranch(name=branch_name)
-    sdk.update_git_branch(project_id=lookml_project, body=branch)
-
-def sync_dev_branch_to_remote(lookml_project):
-    """Pull down changes from remote repo"""
-    sdk.reset_project_to_remote(project_id=lookml_project)
 
 def write_broken_content_to_file(broken_content, output_csv_name):
     """Export new content errors in dev branch to csv file"""
