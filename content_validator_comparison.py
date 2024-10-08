@@ -70,8 +70,9 @@ def get_base_url(config_file):
         base_url = full_base_url
     else:
         try:
-            base_url = full_base_url[:full_base_url.index(":19999")]
-        except:
+            base_url = full_base_url
+            #base_url = full_base_url[:full_base_url.index(":19999")]--original
+         except:
             base_url = full_base_url[:full_base_url.index(":443")]
     return base_url
 
